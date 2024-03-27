@@ -10,7 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import CONF_AUTH_KEY, CONF_IDENTIFIER, DOMAIN
 from .hub import XComfortHub
 
-PLATFORMS = [Platform.LIGHT, Platform.CLIMATE, Platform.SENSOR, Platform.COVER, Platform.SWITCH, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.LIGHT, Platform.CLIMATE, Platform.SENSOR, Platform.COVER, Platform.BINARY_SENSOR]
 
 
 _LOGGER = logging.getLogger(__name__)

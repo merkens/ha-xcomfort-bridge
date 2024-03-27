@@ -14,53 +14,67 @@ def log(msg: str):
     if VERBOSE:
         _LOGGER.info(msg)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     hub = XComfortHub.get_hub(hass, entry)
+
     devices = hub.devices
-    log(f"Found {len(devices)} xcomfort devices")
+
+    _LOGGER.info(f"Found {len(devices)} xcomfort devices")
 
     entities = []
     for device in devices:
         if isinstance(device, BinarySensor):
-            log(f"Adding {device}")
+            log(f"Adding {device.name}")
             entity = HASSXComfortBinarySensor(hass, hub, device)
             entities.append(entity)
 
-    log(f"Added {len(entities)} entities")
+    _LOGGER.info(f"Added {len(entities)} entities")
     async_add_entities(entities)
 
 class HASSXComfortBinarySensor(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant, hub: XComfortHub, device: BinarySensor):
         self.hass = hass
         self._hub = hub
+
         self._device = device
+        self._name = device.name
         self._state = False
         self._last_button_pressed = "none"
-        self._name = device.name
-        self._unique_id = f"binary_sensor_{DOMAIN}_{hub.identifier}-{device.device_id}"
-
+        self._has_ignored_initial = False
+        
+        # Workaround for XComfort rockets switches being named just
+        # "Rocker 1" etc, prefix with component name when possible
         comp_name = hub.get_component_name(device.comp_id)
         if comp_name is not None:
             self._name = f"{comp_name} - {self._name}"
+        
+        self._unique_id = f"binary_sensor_{DOMAIN}_{hub.identifier}-{device.device_id}"
 
     async def async_added_to_hass(self):
-        log(f"Added binary sensor to hass: {self._name}")
-        self._device.subscribe(self._state_change)
-        log(f"Subscribed {self._name} to state changes.")
+        log(f"Added to hass {self._name} ")
+        if self._device.state is None:
+            log(f"State is null for {self._name}")
+        else:
+            self._device.state.subscribe(lambda state: self._state_change(state))
 
-    def _state_change(self, button_pressed):
-        log(f"_state_change: Entry. Sensor={self._name}, Button Pressed={'top' if button_pressed else 'bottom'}")
+    def _state_change(self, state):
+        if not self._has_ignored_initial:
+            log(f"Ignoring initial state change for {self._name}")
+            self._has_ignored_initial = True
+            return
+
         self._state = True
-        self._last_button_pressed = "top" if button_pressed else "bottom"
-        log(f"_state_change: State updated. Sensor={self._name}, _state={self._state}, _last_button_pressed={self._last_button_pressed}")
-        self.async_write_ha_state()
-        self.hass.loop.create_task(self.async_reset_state())
-        log(f"_state_change: Exit. Sensor={self._name}")
+        log(f"State changed {self._name} - isTop : {state.isTop}")
 
+        self._last_button_pressed = "top" if state.isTop else "bottom"
+        self.async_write_ha_state()
+        self.hass.create_task(self.async_reset_state())
 
     async def async_reset_state(self):
         await asyncio.sleep(0.5)
         self._state = False
+        log(f"State changed {self._name} : {self._state}")
         self.async_write_ha_state()
 
     @property
