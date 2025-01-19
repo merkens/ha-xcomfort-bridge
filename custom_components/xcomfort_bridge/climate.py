@@ -1,62 +1,56 @@
 import logging
 
+from xcomfort.bridge import RctMode, RctState, Room
 from xcomfort.connection import Messages
-from xcomfort.bridge import Room, RctMode, RctState
+
 from homeassistant.components.climate import ClimateEntity
+from homeassistant.components.climate.const import (
+    PRESET_COMFORT,
+    PRESET_ECO,
+    ClimateEntityFeature,
+    HVACAction,
+    HVACMode,
+)
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.climate.const import (
-    CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_IDLE,
-    HVAC_MODE_AUTO,
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_PRESET_MODE,
-    PRESET_ECO,
-    PRESET_COMFORT,
-)
-from homeassistant.const import TEMP_CELSIUS
 
+from .const import DOMAIN
 from .hub import XComfortHub
-from .const import DOMAIN, VERBOSE
 
-SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
+SUPPORT_FLAGS = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def log(msg: str):
-    if VERBOSE:
-        _LOGGER.info(msg)
-
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     hub = XComfortHub.get_hub(hass, entry)
 
-    rooms = hub.rooms
+    async def _wait_for_hub_then_setup():
+        await hub.has_done_initial_load.wait()
 
-    _LOGGER.info(f"Found {len(rooms)} xcomfort rooms")
+        rooms = hub.rooms
 
-    rcts = list()
-    for room in rooms:
-        if room.state.value is not None:
-            if room.state.value.setpoint is not None:
-                # _LOGGER.info(f"Adding {room}")
-                rct = HASSXComfortRcTouch(hass, hub, room)
-                rcts.append(rct)
+        _LOGGER.debug(f"Found {len(rooms)} xcomfort rooms")
 
-    _LOGGER.info(f"Added {len(rcts)} rc touch units")
-    async_add_entities(rcts)
-    return
+        rcts = list()
+        for room in rooms:
+            if room.state.value is not None:
+                if room.state.value.setpoint is not None:
+                    rct = HASSXComfortRcTouch(hass, hub, room)
+                    rcts.append(rct)
+
+        _LOGGER.debug(f"Added {len(rcts)} rc touch units")
+        async_add_entities(rcts)
+
+    entry.async_create_task(hass, _wait_for_hub_then_setup())
 
 
 class HASSXComfortRcTouch(ClimateEntity):
-    _attr_temperature_unit = TEMP_CELSIUS
-    _attr_hvac_modes = [HVAC_MODE_AUTO]
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_hvac_modes = [HVACMode.AUTO]
     _attr_supported_features = SUPPORT_FLAGS
 
     def __init__(self, hass: HomeAssistant, hub: XComfortHub, room: Room):
@@ -74,9 +68,9 @@ class HASSXComfortRcTouch(ClimateEntity):
         self._unique_id = f"climate_{DOMAIN}_{hub.identifier}-{room.room_id}"
 
     async def async_added_to_hass(self):
-        log(f"Added to hass {self._name} ")
+        _LOGGER.debug(f"Added to hass {self._name} ")
         if self._room.state is None:
-            log(f"State is null for {self._name}")
+            _LOGGER.debug(f"State is null for {self._name}")
         else:
             self._room.state.subscribe(lambda state: self._state_change(state))
 
@@ -91,12 +85,12 @@ class HASSXComfortRcTouch(ClimateEntity):
             self.temperature = state.temperature
             self.currentsetpoint = state.setpoint
 
-            log(f"State changed {self._name} : {state}")
+            _LOGGER.debug(f"State changed {self._name} : {state}")
 
             self.schedule_update_ha_state()
 
     async def async_set_preset_mode(self, preset_mode):
-        log(f"Set Preset mode {preset_mode}")
+        _LOGGER.debug(f"Set Preset mode {preset_mode}")
 
         if preset_mode == "Cool":
             mode = RctMode.Cool
@@ -110,7 +104,7 @@ class HASSXComfortRcTouch(ClimateEntity):
             self.schedule_update_ha_state()
 
     async def async_set_temperature(self, **kwargs):
-        log(f"Set temperature {kwargs}")
+        _LOGGER.debug(f"Set temperature {kwargs}")
 
         # TODO: Move everything below into Room class in xcomfort-python library.
         # Latest implementation in the base library is broken, so everything moved here
@@ -118,9 +112,7 @@ class HASSXComfortRcTouch(ClimateEntity):
         # Also consider changing the `mode` object on RoomState class to be just a number,
         # at current it is an object(possibly due to erroneous parsing of the 300/310-messages)
         setpoint = kwargs["temperature"]
-        setpointrange = self._room.bridge.rctsetpointallowedvalues[
-            RctMode(self.rctpreset)
-        ]
+        setpointrange = self._room.bridge.rctsetpointallowedvalues[RctMode(self.rctpreset)]
 
         if setpointrange.Max < setpoint:
             setpoint = setpointrange.Max
@@ -154,7 +146,7 @@ class HASSXComfortRcTouch(ClimateEntity):
 
     @property
     def name(self):
-        """Return the display name of this light."""
+        """Return the display name of this entity."""
         return self._name
 
     @property
@@ -173,7 +165,7 @@ class HASSXComfortRcTouch(ClimateEntity):
 
     @property
     def hvac_mode(self):
-        return HVAC_MODE_AUTO
+        return HVACMode.AUTO
 
     @property
     def current_humidity(self):
@@ -183,9 +175,9 @@ class HASSXComfortRcTouch(ClimateEntity):
     @property
     def hvac_action(self):
         if self._state.power > 0:
-            return CURRENT_HVAC_HEAT
+            return HVACAction.HEATING
         else:
-            return CURRENT_HVAC_IDLE
+            return HVACAction.IDLE
 
     @property
     def max_temp(self):

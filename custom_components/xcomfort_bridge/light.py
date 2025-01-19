@@ -1,55 +1,41 @@
-import asyncio
+from functools import cached_property
 import logging
 from math import ceil
 
 from xcomfort.devices import Light
 
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    SUPPORT_BRIGHTNESS,
-    LightEntity,
-)
+from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, VERBOSE
+from .const import DOMAIN
 from .hub import XComfortHub
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def log(msg: str):
-    if VERBOSE:
-        _LOGGER.info(msg)
-
-
-# PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-# 	vol.Required(CONF_IP_ADDRESS): cv.string,
-# 	vol.Required(CONF_AUTH_KEY): cv.string,
-# })
-
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     hub = XComfortHub.get_hub(hass, entry)
 
-    devices = hub.devices
+    async def _wait_for_hub_then_setup():
+        await hub.has_done_initial_load.wait()
 
-    _LOGGER.info(f"Found {len(devices)} xcomfort devices")
+        devices = hub.devices
 
-    lights = list()
-    for device in devices:
-        if isinstance(device,Light):
-            _LOGGER.info(f"Adding {device}")
-            light = HASSXComfortLight(hass, hub, device)
-            lights.append(light)
+        _LOGGER.debug(f"Found {len(devices)} xcomfort devices")
 
-    _LOGGER.info(f"Added {len(lights)} lights")
-    async_add_entities(lights)
+        lights = list()
+        for device in devices:
+            if isinstance(device, Light):
+                _LOGGER.debug(f"Adding {device}")
+                light = HASSXComfortLight(hass, hub, device)
+                lights.append(light)
+
+        _LOGGER.debug(f"Added {len(lights)} lights")
+        async_add_entities(lights)
+
+    entry.async_create_task(hass, _wait_for_hub_then_setup())
 
 
 class HASSXComfortLight(LightEntity):
@@ -61,16 +47,13 @@ class HASSXComfortLight(LightEntity):
         self._name = device.name
         self._state = None
         self.device_id = device.device_id
-
-        # comp = hub.bridge.getComp(self._device._device["compId"])
-        # self.versionFW = comp["versionFW"]
-
         self._unique_id = f"light_{DOMAIN}_{hub.identifier}-{device.device_id}"
+        self._color_mode = ColorMode.BRIGHTNESS if self._device.dimmable else ColorMode.ONOFF
 
     async def async_added_to_hass(self):
-        log(f"Added to hass {self._name} ")
+        _LOGGER.debug(f"Added to hass {self._name} ")
         if self._device.state is None:
-            log(f"State is null for {self._name}")
+            _LOGGER.debug(f"State is null for {self._name}")
         else:
             self._device.state.subscribe(lambda state: self._state_change(state))
 
@@ -79,7 +62,7 @@ class HASSXComfortLight(LightEntity):
 
         should_update = self._state is not None
 
-        log(f"State changed {self._name} : {state}")
+        _LOGGER.debug(f"State changed {self._name} : {state}")
 
         if should_update:
             self.schedule_update_ha_state()
@@ -121,36 +104,35 @@ class HASSXComfortLight(LightEntity):
     @property
     def is_on(self):
         """Return true if light is on."""
-        return self._state.switch
+        return self._state and self._state.switch
 
     @property
-    def supported_features(self):
-        """Flag supported features."""
-        if self._device.dimmable:
-            return SUPPORT_BRIGHTNESS
-        return 0
+    def color_mode(self) -> ColorMode:
+        return self._color_mode
+
+    @cached_property
+    def supported_color_modes(self) -> set[ColorMode] | set[str] | None:
+        return {self._color_mode}
 
     async def async_turn_on(self, **kwargs):
-        log(f"async_turn_on {self._name} : {kwargs}")
+        _LOGGER.debug(f"async_turn_on {self._name} : {kwargs}")
         if ATTR_BRIGHTNESS in kwargs and self._device.dimmable:
             br = ceil(kwargs[ATTR_BRIGHTNESS] * 99 / 255.0)
-            log(f"async_turn_on br {self._name} : {br}")
+            _LOGGER.debug(f"async_turn_on br {self._name} : {br}")
             await self._device.dimm(br)
             self._state.dimmvalue = br
             self.schedule_update_ha_state()
             return
 
         switch_task = self._device.switch(True)
-        # switch_task = self.hub.bridge.switch_device(self.device_id,True)
         await switch_task
 
         self._state.switch = True
         self.schedule_update_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        log(f"async_turn_off {self._name} : {kwargs}")
+        _LOGGER.debug(f"async_turn_off {self._name} : {kwargs}")
         switch_task = self._device.switch(False)
-        # switch_task = self.hub.bridge.switch_device(self.device_id,True)
         await switch_task
 
         self._state.switch = False
