@@ -1,0 +1,20 @@
+{
+  "domain": "xcomfort_bridge",
+  "name": "Eaton xComfort Bridge",
+  "codeowners": ["@merkens"],
+  "config_flow": true,
+  "dhcp": [
+    {
+      "hostname": "xcb*"
+    },
+    {
+      "macaddress": "003055*"
+    }
+  ],
+  "documentation": "https://github.com/merkens/ha-xcomfort-bridge",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/merkens/ha-xcomfort-bridge/issues",
+  "requirements": [],
+  "version": "0.3.1"
+}
