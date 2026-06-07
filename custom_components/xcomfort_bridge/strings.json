@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to xComfort Bridge",
+        "description": "Enter the bridge host and choose how you want to authenticate.",
+        "data": {
+          "host": "Host",
+          "auth_mode": "Authentication mode"
+        }
+      },
+      "credentials": {
+        "title": "Authentication",
+        "description": "Enter the required credentials for {auth_mode}.",
+        "data": {
+          "username": "Username",
+          "secret": "Secret"
+        },
+        "data_description": {
+          "secret": "Use the bridge auth code here for Auth code mode, or the user password for User mode."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure xComfort Bridge",
+        "description": "Update the bridge host and choose how you want to authenticate.",
+        "data": {
+          "host": "Host",
+          "auth_mode": "Authentication mode"
+        }
+      },
+      "reconfigure_credentials": {
+        "title": "Reconfigure Authentication",
+        "description": "Enter the required credentials for {auth_mode}.",
+        "data": {
+          "username": "Username",
+          "secret": "Secret"
+        },
+        "data_description": {
+          "secret": "Use the bridge auth code here for Auth code mode, or the user password for User mode."
+        }
+      }
+    },
+    "error": {
+      "host_required": "Host is required.",
+      "secret_required": "Secret is required.",
+      "username_required": "Username is required for user authentication.",
+      "invalid_auth": "Authentication failed. Check your credentials.",
+      "cannot_connect": "Cannot connect to the bridge. Check the host address.",
+      "unknown_error": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This bridge is already configured.",
+      "not_xcomfort_bridge": "Device does not appear to be an xComfort bridge.",
+      "reconfigure_successful": "Configuration updated successfully."
+    }
+  }
+}
