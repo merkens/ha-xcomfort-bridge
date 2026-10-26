@@ -1,0 +1,76 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Connect to xComfort Bridge",
+        "description": "Enter the bridge host and choose how you want to authenticate.",
+        "data": {
+          "host": "Host",
+          "auth_mode": "Authentication mode"
+        }
+      },
+      "credentials": {
+        "title": "Authentication",
+        "description": "Enter the required credentials for {auth_mode}.",
+        "data": {
+          "username": "Username",
+          "secret": "Secret"
+        },
+        "data_description": {
+          "secret": "Use the bridge auth code here for Auth code mode, or the user password for User mode."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure xComfort Bridge",
+        "description": "Update the bridge host and choose how you want to authenticate.",
+        "data": {
+          "host": "Host",
+          "auth_mode": "Authentication mode"
+        }
+      },
+      "reconfigure_credentials": {
+        "title": "Reconfigure Authentication",
+        "description": "Enter the required credentials for {auth_mode}.",
+        "data": {
+          "username": "Username",
+          "secret": "Secret"
+        },
+        "data_description": {
+          "secret": "Leave empty to keep the current secret. Otherwise use the bridge auth code for Auth code mode, or the user password for User mode."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate xComfort Bridge",
+        "description": "The bridge rejected the stored credentials. Enter the current credentials for {auth_mode}.",
+        "data": {
+          "username": "Username",
+          "secret": "Secret"
+        },
+        "data_description": {
+          "secret": "Use the bridge auth code here for Auth code mode, or the user password for User mode."
+        }
+      }
+    },
+    "error": {
+      "host_required": "Host is required.",
+      "secret_required": "Secret is required.",
+      "username_required": "Username is required for user authentication.",
+      "invalid_auth": "Authentication failed. Check your credentials.",
+      "cannot_connect": "Cannot connect to the bridge. Check the host address.",
+      "unknown_error": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This bridge is already configured.",
+      "reconfigure_successful": "Configuration updated successfully.",
+      "reauth_successful": "Reauthentication was successful.",
+      "wrong_bridge": "This is a different bridge than the one this entry was set up for. Add it as a new integration instead."
+    }
+  },
+  "issues": {
+    "orphaned_entities": {
+      "title": "xComfort devices or entities no longer provided",
+      "description": "The bridge {bridge} no longer reports the following, so they stay unavailable:\n\n{items}\n\nIf they were removed or changed on purpose (unpaired, room sensor unassigned, actuator usage changed), delete them: a device from its device page, an entity from its entity settings. This notice updates by itself."
+    }
+  }
+}
